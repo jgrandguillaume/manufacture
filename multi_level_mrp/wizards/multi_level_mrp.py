@@ -4,7 +4,7 @@
 # - Jordi Ballester Alomar <jordi.ballester@eficent.com>
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
 
-from openerp import models, fields, api
+from openerp import api, fields, models
 from datetime import date, datetime, timedelta
 
 
@@ -35,7 +35,7 @@ class MultiLevelMrp(models.TransientModel):
             }
 
     @api.model
-    def _prepare_mrp_move_data(self, fc, fc_id, mrpproduct):
+    def _prepare_mrp_move_data_from_forecast(self, fc, fc_id, mrpproduct):
         mrp_type = 'd'
         origin = 'fc'
         mrp_date = date.today()
@@ -67,10 +67,233 @@ class MultiLevelMrp(models.TransientModel):
             'state': 'confirmed',
         }
 
-    @api.one
-    def run_multi_level_mrp(self):
+    @api.model
+    def _prepare_mrp_move_data_from_stock_move(self, mrp_product, move):
+            if (move.location_id.usage == 'internal' and
+                    move.location_dest_id.usage != 'internal') \
+                    or (move.location_id.usage != 'internal' and
+                                move.location_dest_id.usage == 'internal'):
+                if move.location_id.usage == 'internal':
+                    mrp_type = 'd'
+                    productqty = -move.product_qty
+                else:
+                    mrp_type = 's'
+                    productqty = move.product_qty
+                po = None
+                po_line = None
+                so = None
+                so_line = None
+                mo = None
+                origin = None
+                order_number = None
+                parent_product_id = None
+                if move.purchase_line_id:
+                    order_number = move.purchase_line_id.order_id.name
+                    origin = 'po'
+                    po = move.purchase_line_id.order_id.id
+                    po_line = move.purchase_line_id.id
+                if move.production_id:
+                    order_number = move.production_id.name
+                    origin = 'mo'
+                    mo = move.production_id.id
+                else:
+                    if move.move_dest_id:
+                        if move.move_dest_id.production_id:
+                            order_number = \
+                                move.move_dest_id.production_id.name
+                            origin = 'mo'
+                            mo = move.move_dest_id.production_id.id
+                            if move.move_dest_id.production_id.product_id:
+                                parent_product_id = \
+                                    move.move_dest_id.production_id.product_id.id
+                            else:
+                                parent_product_id = \
+                                    move.move_dest_id.product_id.id
+                if order_number is None:
+                    order_number = move.name
+                mrp_date = date.today()
+                if datetime.date(datetime.strptime(
+                        move.date, '%Y-%m-%d %H:%M:%S')) > date.today():
+                    mrp_date = datetime.date(datetime.strptime(
+                        move.date, '%Y-%m-%d %H:%M:%S'))
+                return {
+                    'product_id': move.product_id.id,
+                    'mrp_product_id': mrp_product.id,
+                    'production_id': mo,
+                    'purchase_order_id': po,
+                    'purchase_line_id': po_line,
+                    'sale_order_id': so,
+                    'sale_line_id': so_line,
+                    'stock_move_id': move.id,
+                    'mrp_qty': productqty,
+                    'current_qty': productqty,
+                    'mrp_date': mrp_date,
+                    'current_date': move.date,
+                    'mrp_action': 'none',
+                    'mrp_type': mrp_type,
+                    'mrp_processed': False,
+                    'mrp_origin': origin,
+                    'mrp_order_number': order_number,
+                    'parent_product_id': parent_product_id,
+                    'running_availability': 0.00,
+                    'name': order_number,
+                    'state': move.state,
+                }
+
+    @api.model
+    def _prepare_mrp_move_data_supply(self, product, qty, mrp_date_supply,
+                                      mrp_action_date, mrp_action, name):
+        return {
+                    'product_id': product.product_id.id,
+                    'mrp_product_id': product.id,
+                    'production_id': None,
+                    'purchase_order_id': None,
+                    'purchase_line_id': None,
+                    'sale_order_id': None,
+                    'sale_line_id': None,
+                    'stock_move_id': None,
+                    'mrp_qty': qty,
+                    'current_qty': None,
+                    'mrp_date': mrp_date_supply,
+                    'mrp_action_date': mrp_action_date,
+                    'current_date': None,
+                    'mrp_action': mrp_action,
+                    'mrp_type': 's',
+                    'mrp_processed': False,
+                    'mrp_origin': None,
+                    'mrp_order_number': None,
+                    'parent_product_id': None,
+                    'name': 'Supply: ' + name,
+                }
+
+    @api.model
+    def _prepare_mrp_move_data_bom_explosion(self, bomline, qty,
+                                             mrp_date_demand_2, bom, name):
+            return {
+                'product_id': bomline.product_id.id,
+                'mrp_product_id':
+                    bomline.product_id.mrp_product_id.id,
+                'production_id': None,
+                'purchase_order_id': None,
+                'purchase_line_id': None,
+                'sale_order_id': None,
+                'sale_line_id': None,
+                'stock_move_id': None,
+                'mrp_qty': -(qty * bomline.product_qty),
+                'current_qty': None,
+                'mrp_date': mrp_date_demand_2,
+                'current_date': None,
+                'mrp_action': 'none',
+                'mrp_type': 'd',
+                'mrp_processed': False,
+                'mrp_origin': 'mrp',
+                'mrp_order_number': None,
+                'parent_product_id': bom.product_id.id,
+                'name':
+                    ('Demand Bom Explosion: ' + name).replace(
+                        'Demand Bom Explosion: Demand Bom '
+                        'Explosion: ',
+                        'Demand Bom Explosion: '),
+            }
+
+    @api.model
+    def create_move(self, mrp_product_id, mrp_date, mrp_qty, name):
         self = self.with_context(auditlog_disabled=True)
-        
+
+        values = {}
+        if not isinstance(mrp_date, date):
+            mrp_date = datetime.date(datetime.strptime(mrp_date, '%Y-%m-%d'))
+
+        qty_ordered = 0.00
+        products = self.env['mrp.product'].search([('id','=', mrp_product_id)])
+        for product in products:
+            if product.supply_method == 'buy':
+                if product.purchase_requisition:
+                    mrp_action = 'pr'
+                else:
+                    mrp_action = 'po'
+            else:
+                mrp_action = 'mo'
+
+            if mrp_date < date.today():
+                mrp_date_supply = date.today()
+            else:
+                mrp_date_supply = mrp_date
+
+            mrp_action_date = mrp_date-timedelta(days=product.mrp_lead_time)
+
+            qty_ordered = 0.00
+            qty_to_order = mrp_qty
+            while qty_ordered < mrp_qty:
+                qty = 0.00
+                if product.mrp_maximum_order_qty == 0.00 and \
+                                product.mrp_minimum_order_qty == 0.00:
+                    qty = qty_to_order
+                else:
+                    if qty_to_order < product.mrp_minimum_order_qty:
+                        qty = product.mrp_minimum_order_qty
+                    else:
+                        if product.mrp_maximum_order_qty and qty_to_order > \
+                                product.mrp_maximum_order_qty:
+                            qty = product.mrp_maximum_order_qty
+                        else:
+                            qty = qty_to_order
+                qty_to_order -= qty
+
+                move_data = self._prepare_mrp_move_data_supply(product, qty,
+                                                               mrp_date_supply,
+                                                               mrp_action_date,
+                                                               mrp_action,
+                                                               name)
+                mrpmove_id = self.env['mrp.move'].create(move_data)
+                qty_ordered = qty_ordered + qty
+
+                if mrp_action == 'mo':
+                    mrp_date_demand = mrp_date-timedelta(days=product.mrp_lead_time)
+                    if mrp_date_demand < date.today():
+                        mrp_date_demand = date.today()
+                    if not product.product_id.bom_ids:
+                        continue
+                    bomcount = 0
+                    for bom in product.product_id.bom_ids:
+                        if not bom.active or not bom.bom_line_ids:
+                            continue
+                        bomcount += 1
+                        if bomcount != 1:
+                            continue
+                        for bomline in bom.bom_line_ids:
+                            if bomline.product_qty <= 0.00:
+                                continue
+                            if bomline.date_start and datetime.date(
+                                    datetime.strptime(
+                                        bomline.date_start, '%Y-%m-%d')) > \
+                                    mrp_date_demand:
+                                continue
+                            if bomline.date_stop and datetime.date(
+                                    datetime.strptime(
+                                        bomline.date_stop, '%Y-%m-%d')) < \
+                                    mrp_date_demand:
+                                continue
+
+                            mrp_date_demand_2 = mrp_date_demand-timedelta(
+                                days=(product.mrp_transit_delay+product.
+                                      mrp_inspection_delay))
+                            move_data = \
+                                self._prepare_mrp_move_data_bom_explosion(
+                                    bomline, qty, mrp_date_demand_2, bom, name)
+                            mrpmove_id2 = self.env['mrp.move'].create(
+                                move_data)
+                            sql_stat = "INSERT INTO mrp_move_rel (" \
+                                       "move_up_id, " \
+                                       "move_down_id) values (%d, %d)" % \
+                                       (mrpmove_id, mrpmove_id2, )
+                            self.env.cr.execute(sql_stat)
+        values['qty_ordered'] = qty_ordered
+        print qty_ordered
+        return values
+
+    @api.model
+    def _load_mrp_products(self):
         print 'LOAD MRP PRODUCTS'
         products = self.env['product.product'].search_read(
             [('active', '=', True), ('mrp_exclude', '!=', True)], ['id'])
@@ -78,7 +301,10 @@ class MultiLevelMrp(models.TransientModel):
         for product in products:
             product_ids.append(product['id'])
         print 'END LOAD MRP PRODUCTS'
-        
+        return product_ids
+
+    @api.model
+    def _mrp_cleanup(self):
         # Some part of the code with the new API is replaced by
         # sql statements due to performance issues when the auditlog is
         # installed
@@ -88,7 +314,10 @@ class MultiLevelMrp(models.TransientModel):
         sql_stat = 'update product_product set mrp_product_id = NULL'
         self.env.cr.execute(sql_stat)
         print 'END MRP CLEANUP'
-        
+        return True
+
+    @api.model
+    def _low_level_code_calculation(self):
         print 'START LOW LEVEL CODE CALCULATION'
         counter = 999999
         sql_stat = 'update product_product set llc = 0'
@@ -100,7 +329,7 @@ class MultiLevelMrp(models.TransientModel):
         if sql_res:
             counter = sql_res['counter']
         print 'LOW LEVEL CODE 0 FINISHED - NBR PRODUCTS: ', counter
-        
+
         llc = 0
         while counter != 999999:
             self.env.cr.commit()
@@ -125,11 +354,14 @@ class MultiLevelMrp(models.TransientModel):
         mrp_lowest_llc = llc
         self.env.cr.commit()
         print 'END LOW LEVEL CODE CALCULATION'
-        
+        return mrp_lowest_llc
+
+    @api.model
+    def _calculate_mrp_applicable(self):
         print 'CALCULATE MRP APPLICABLE'
         sql_stat = '''UPDATE product_product SET mrp_applicable = False;'''
         self.env.cr.execute(sql_stat)
-        
+
         sql_stat = '''
 UPDATE product_product SET mrp_applicable=True
 FROM product_template
@@ -176,7 +408,9 @@ WHERE product_product.id = mrp_forecast_product.product_id;'''
         if sql_res:
             counter = sql_res['counter']
         print 'END CALCULATE MRP APPLICABLE: ', counter
-        
+
+    @api.model
+    def _mrp_initialisation(self):
         print 'START MRP INITIALISATION'
         products = self.env['product.product'].search(
             [('mrp_applicable', '=', True)])
@@ -189,16 +423,15 @@ WHERE product_product.id = mrp_forecast_product.product_id;'''
             mrp_product_data = self._prepare_mrp_product_data(product)
             mrp_product = self.env['mrp.product'].create(mrp_product_data)
             product.mrp_product_id = mrp_product
-            
+
             forecast = self.env['mrp.forecast.product'].search(
                 [('product_id', '=', product.id)])
-            for fc in forecast: 
+            for fc in forecast:
                 for fc_id in fc.mrp_forecast_ids:
-                    mrp_move_data = self._prepare_mrp_move_data(self, fc,
-                                                                fc_id,
-                                                                mrp_product)
+                    mrp_move_data = self._prepare_mrp_move_data_from_forecast(
+                        fc, fc_id, mrp_product)
                     self.env['mrp.move'].create(mrp_move_data)
-            
+
             moves = self.env['stock.move'].search(
                 [('product_id', '=', product.id),
                  ('state', '!=', 'done'),
@@ -206,76 +439,12 @@ WHERE product_product.id = mrp_forecast_product.product_id;'''
                  ('product_qty', '>', 0.00)])
 
             for move in moves:
-                if (move.location_id.usage == 'internal' and
-                        move.location_dest_id.usage != 'internal') \
-                        or (move.location_id.usage != 'internal' and
-                                    move.location_dest_id.usage == 'internal'):
-                    if move.location_id.usage == 'internal':
-                        mrp_type = 'd'
-                        productqty = -move.product_qty
-                    else:
-                        mrp_type = 's'
-                        productqty = move.product_qty
-                    po = None
-                    po_line = None
-                    so = None
-                    so_line = None
-                    mo = None
-                    origin = None
-                    order_number = None
-                    parent_product_id = None
-                    if move.purchase_line_id:
-                        order_number = move.purchase_line_id.order_id.name
-                        origin = 'po'
-                        po = move.purchase_line_id.order_id.id
-                        po_line = move.purchase_line_id.id
-                    if move.production_id:
-                        order_number = move.production_id.name
-                        origin = 'mo'
-                        mo = move.production_id.id
-                    else:
-                        if move.move_dest_id:
-                            if move.move_dest_id.production_id:
-                                order_number = \
-                                    move.move_dest_id.production_id.name
-                                origin = 'mo'
-                                mo = move.move_dest_id.production_id.id
-                                if move.move_dest_id.production_id.product_id:
-                                    parent_product_id = \
-                                        move.move_dest_id.production_id.product_id.id
-                                else:
-                                    parent_product_id = \
-                                        move.move_dest_id.product_id.id
-                    if order_number is None:
-                        order_number = move.name
-                    mrp_date = date.today()
-                    if datetime.date(datetime.strptime(move.date, '%Y-%m-%d %H:%M:%S')) > date.today():
-                        mrp_date = datetime.date(datetime.strptime(move.date, '%Y-%m-%d %H:%M:%S'))
-                    self.env['mrp.move'].create({
-                        'product_id': move.product_id.id,
-                        'mrp_product_id': mrp_product.id,
-                        'production_id': mo,
-                        'purchase_order_id': po,
-                        'purchase_line_id': po_line,
-                        'sale_order_id': so,
-                        'sale_line_id': so_line,
-                        'stock_move_id': move.id,
-                        'mrp_qty': productqty,
-                        'current_qty': productqty,
-                        'mrp_date': mrp_date,
-                        'current_date': move.date,
-                        'mrp_action': 'none',
-                        'mrp_type': mrp_type,
-                        'mrp_processed': False,
-                        'mrp_origin': origin,
-                        'mrp_order_number': order_number,
-                        'parent_product_id': parent_product_id,
-                        'running_availability': 0.00,
-                        'name': order_number,
-                        'state': move.state,
-                    })
-            
+                move_data = self._prepare_mrp_move_data_from_stock_move(
+                    mrp_product, move)
+                self.env['mrp.move'].create(move_data)
+
             for poreq in product.purchase_requisition_ids:
+
                 if poreq.requisition_id.state == 'draft' and \
                                 poreq.product_qty > 0.00:
                     mrp_date = date.today()
@@ -306,7 +475,7 @@ WHERE product_product.id = mrp_forecast_product.product_id;'''
                         'mrp_order_number': poreq.requisition_id.name,
                         'parent_product_id': None,
                         'running_availability': 0.00,
-                        'name': poreq.requisition_id.name,    
+                        'name': poreq.requisition_id.name,
                         'state': poreq.requisition_id.state,
                     })
 
@@ -339,7 +508,7 @@ WHERE product_product.id = mrp_forecast_product.product_id;'''
                         'mrp_order_number': poline.order_id.name,
                         'parent_product_id': None,
                         'running_availability': 0.00,
-                        'name': poline.order_id.name,    
+                        'name': poline.order_id.name,
                         'state': poline.order_id.state,
                     })
 
@@ -370,7 +539,7 @@ WHERE product_product.id = mrp_forecast_product.product_id;'''
                         'mrp_order_number': mo.name,
                         'parent_product_id': None,
                         'running_availability': 0.00,
-                        'name': mo.name,    
+                        'name': mo.name,
                         'state': mo.state,
                     })
                     mrp_date_demand = mrp_date-timedelta(days=product.mrp_lead_time)
@@ -423,10 +592,12 @@ WHERE product_product.id = mrp_forecast_product.product_id;'''
                                         })
             self.env.cr.commit()
         print 'END MRP INITIALISATION'
-        
+
+    @api.model
+    def _mrp_calculation(self, mrp_lowest_llc):
         print 'START MRP CALCULATION'
         llc = 0
-         
+
         while mrp_lowest_llc > llc:
             self.env.cr.commit()
             products = self.env['mrp.product'].search([('mrp_llc', '=', llc)])
@@ -530,10 +701,12 @@ WHERE product_product.id = mrp_forecast_product.product_id;'''
                 ' FINISHED - NBR PRODUCTS: ', counter
             if llc < 0:
                 counter = 999999
-                 
+
         self.env.cr.commit()
         print 'END MRP CALCULATION'
 
+    @api.model
+    def _mrp_final_process(self):
         print 'START MRP FINAL PROCESS'
         product_ids = self.env['mrp.product'].search([('mrp_llc', '<', 9999)])
         for product in product_ids:
@@ -550,7 +723,7 @@ WHERE product_product.id = mrp_forecast_product.product_id;'''
                 self.env['mrp.move'].search(
                     [('id', '=', sql_res['id'])]).write(
                     {'running_availability': qoh})
-            
+
             for move in product.mrp_move_ids:
                 if move.mrp_action != 'none':
                     nbr_actions += 1
@@ -568,135 +741,20 @@ WHERE product_product.id = mrp_forecast_product.product_id;'''
             self.env.cr.commit()
         print 'END MRP FINAL PROCESS'
 
-    @api.model
-    def create_move(self, mrp_product_id, mrp_date, mrp_qty, name):
+    @api.one
+    def run_multi_level_mrp(self):
         self = self.with_context(auditlog_disabled=True)
-        
-        values = {}
-        if not isinstance(mrp_date, date):
-            mrp_date = datetime.date(datetime.strptime(mrp_date, '%Y-%m-%d'))
-            
-        qty_ordered = 0.00
-        products = self.env['mrp.product'].search([('id','=',mrp_product_id)])
-        for product in products:
-            if product.supply_method == 'buy':
-                if product.purchase_requisition:
-                    mrp_action = 'pr'
-                else:
-                    mrp_action = 'po'
-            else:
-                mrp_action = 'mo'
 
-            if mrp_date < date.today():
-                mrp_date_supply = date.today()
-            else:
-                mrp_date_supply = mrp_date
-            
-            mrp_action_date = mrp_date-timedelta(days=product.mrp_lead_time)
-                            
-            qty_ordered = 0.00
-            qty_to_order = mrp_qty
-            while qty_ordered < mrp_qty:
-                qty = 0.00
-                if product.mrp_maximum_order_qty == 0.00 and \
-                                product.mrp_minimum_order_qty == 0.00:
-                    qty = qty_to_order
-                else:
-                    if qty_to_order < product.mrp_minimum_order_qty:
-                        qty = product.mrp_minimum_order_qty
-                    else:
-                        if product.mrp_maximum_order_qty and qty_to_order > \
-                                product.mrp_maximum_order_qty:
-                            qty = product.mrp_maximum_order_qty
-                        else:
-                            qty = qty_to_order
-                qty_to_order = qty_to_order - qty
-                        
-                mrpmove_id = self.env['mrp.move'].create({
-                    'product_id': product.product_id.id,
-                    'mrp_product_id': product.id,
-                    'production_id': None,
-                    'purchase_order_id': None,
-                    'purchase_line_id': None,
-                    'sale_order_id': None,
-                    'sale_line_id': None,
-                    'stock_move_id': None,
-                    'mrp_qty': qty,
-                    'current_qty': None,
-                    'mrp_date': mrp_date_supply,
-                    'mrp_action_date': mrp_action_date,
-                    'current_date': None,
-                    'mrp_action': mrp_action,
-                    'mrp_type': 's',
-                    'mrp_processed': False,
-                    'mrp_origin': None,
-                    'mrp_order_number': None,
-                    'parent_product_id': None,
-                    'name': 'Supply: ' + name,
-                })
-                qty_ordered = qty_ordered + qty
-            
-                if mrp_action == 'mo':
-                    mrp_date_demand = mrp_date-timedelta(days=product.mrp_lead_time)
-                    if mrp_date_demand < date.today():
-                        mrp_date_demand = date.today()
-                    if not product.product_id.bom_ids:
-                        continue
-                    bomcount = 0
-                    for bom in product.product_id.bom_ids:
-                        if not bom.active or not bom.bom_line_ids:
-                            continue
-                        bomcount += 1
-                        if bomcount != 1:
-                            continue
-                        for bomline in bom.bom_line_ids:
-                            if bomline.product_qty <= 0.00:
-                                continue
-                            if bomline.date_start and datetime.date(
-                                    datetime.strptime(
-                                        bomline.date_start, '%Y-%m-%d')) > \
-                                    mrp_date_demand:
-                                continue
-                            if bomline.date_stop and datetime.date(
-                                    datetime.strptime(
-                                        bomline.date_stop, '%Y-%m-%d')) < \
-                                    mrp_date_demand:
-                                continue
+        product_ids = self._load_mrp_products()
 
-                            mrp_date_demand_2 = mrp_date_demand-timedelta(
-                                days=(product.mrp_transit_delay+product.
-                                      mrp_inspection_delay))
-                            mrpmove_id2 = self.env['mrp.move'].create({
-                                'product_id': bomline.product_id.id,
-                                'mrp_product_id':
-                                    bomline.product_id.mrp_product_id.id,
-                                'production_id': None,
-                                'purchase_order_id': None,
-                                'purchase_line_id': None,
-                                'sale_order_id': None,
-                                'sale_line_id': None,
-                                'stock_move_id': None,
-                                'mrp_qty': -(qty * bomline.product_qty),
-                                'current_qty': None,
-                                'mrp_date': mrp_date_demand_2,
-                                'current_date': None,
-                                'mrp_action': 'none',
-                                'mrp_type': 'd',
-                                'mrp_processed': False,
-                                'mrp_origin': 'mrp',
-                                'mrp_order_number': None,
-                                'parent_product_id': bom.product_id.id,
-                                'name':
-                                    ('Demand Bom Explosion: ' + name).replace(
-                                        'Demand Bom Explosion: Demand Bom '
-                                        'Explosion: ',
-                                        'Demand Bom Explosion: '),
-                            })
-                            sql_stat = "INSERT INTO mrp_move_rel (" \
-                                       "move_up_id, " \
-                                       "move_down_id) values (%d, %d)" % \
-                                       (mrpmove_id, mrpmove_id2, )
-                            self.env.cr.execute(sql_stat)
-        values['qty_ordered'] = qty_ordered
-        print qty_ordered
-        return values
+        self._mrp_cleanup()
+
+        mrp_lowest_llc = self._low_level_code_calculation()
+
+        self._calculate_mrp_applicable()
+
+        self._mrp_initialisation()
+
+        self._mrp_calculation(mrp_lowest_llc)
+
+        self._mrp_final_process()
