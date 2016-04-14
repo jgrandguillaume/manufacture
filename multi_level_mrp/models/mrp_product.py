@@ -9,7 +9,8 @@ from openerp import fields, models
 
 class MrpProduct(models.Model):
     _name = 'mrp.product'
-     
+
+    mrp_area_id = fields.Many2one('mrp.area', 'MRP Area')
     current_qty_available = fields.Float(string='Current Qty Available',
                                          related='product_id.qty_available')
     main_supplier_id = fields.Many2one('res.partner', 'Main Supplier',
@@ -25,11 +26,6 @@ class MrpProduct(models.Model):
         string='Minimum Order Qty', related='product_id.mrp_minimum_order_qty')
     mrp_minimum_stock = fields.Float(string='Minimum Stock',
                                      related='product_id.mrp_minimum_stock')
-    mrp_minimum_stock_cc = fields.Float(
-        string='Minimum Stock CC', related='product_id.mrp_minimum_stock_cc')
-    mrp_minimum_stock_prod = fields.Float(
-        string='Minimum Stock PROD',
-        related='product_id.mrp_minimum_stock_prod')
     mrp_move_ids = fields.One2many('mrp.move', 'mrp_product_id', 'MRP Moves')
     mrp_nbr_days = fields.Integer(
         string='Nbr. Days', related='product_id.mrp_nbr_days')

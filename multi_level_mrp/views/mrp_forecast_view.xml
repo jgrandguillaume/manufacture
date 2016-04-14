@@ -8,6 +8,7 @@
 			<field name="type">form</field>
 			<field name="arch" type="xml">
 				<tree string="MRP Product Forecast">
+					<field name="mrp_area_id"/>
 					<field name="product_id"/>
 					<field name="qty_forecast_total"/>
 					<field name="qty_forecast_past"/>
@@ -30,6 +31,7 @@
 				<form string="MRP Product Forecast">
 					<group colspan="4" col="2">
 						<group>
+							<field name="mrp_area_id"/>
 							<field name="product_id"/>
 						</group>
 					</group>

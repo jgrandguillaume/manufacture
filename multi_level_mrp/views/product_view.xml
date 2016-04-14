@@ -20,8 +20,6 @@
 								<field name="mrp_inspection_delay"/>
 							</group>
 							<group>
-								<field name="mrp_minimum_stock_cc"/>
-								<field name="mrp_minimum_stock_prod"/>
 								<field name="mrp_minimum_stock"/>
 								<field name="mrp_minimum_order_qty"/>
 								<field name="mrp_maximum_order_qty"/>

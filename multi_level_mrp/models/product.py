@@ -22,10 +22,13 @@ class Product(models.Model):
     mrp_maximum_order_qty = fields.Float('Maximum Order Qty', default=0.00)
     mrp_minimum_order_qty = fields.Float('Minimum Order Qty', default=0.00)
     mrp_minimum_stock = fields.Float('Minimum Stock')
-    mrp_minimum_stock_cc = fields.Float('Minimum Stock CC')
-    mrp_minimum_stock_prod = fields.Float('Minimum Stock PROD')
-    mrp_nbr_days = fields.Integer('Nbr. Days', default=0)
-    mrp_product_id = fields.Many2one('mrp.product', 'MRP Product', select=True)
+    mrp_nbr_days = fields.Integer('Nbr. Days', default=0,
+                                  help="Number of days to group demand for "
+                                       "this product during the MRP run, "
+                                       "in order to determine the quantity "
+                                       "to order.")
+    mrp_product_ids = fields.One2many('mrp.product',
+                                      'product_id', 'MRP Product data')
     mrp_qty_multiple = fields.Float('Qty Multiple', default=1.00)
     mrp_transit_delay = fields.Integer('Transit Delay', default=0)
     mrp_verified = fields.Boolean('Verified for MRP',

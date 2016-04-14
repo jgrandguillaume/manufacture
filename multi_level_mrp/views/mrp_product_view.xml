@@ -8,6 +8,7 @@
 			<field name="type">form</field>
 			<field name="arch" type="xml">
 				<tree string="MRP Products">
+					<field name="mrp_area_id"/>
 					<field name="product_id"/>
 					<field name="mrp_verified"/>
 					<field name="mrp_move_ids"/>
@@ -28,6 +29,7 @@
 				<form string="MRP Product">
 					<group colspan="4" col="2">
 						<group>
+							<field name="mrp_area_id" readonly="True"/>
 							<field name="product_id" readonly="True"/>
 							<field name="product_tmpl_id" readonly="True"/>
 							<field name="mrp_verified" readonly="True"/>
@@ -53,6 +55,7 @@
 						<separator string="Moves"/>
 						<field name="mrp_move_ids" nolabel="1" colspan="2" context="{'default_mrp_product_id': active_id}" readonly="True">
 							<tree string="Moves" colors="red:running_availability > mrp_minimum_stock">
+								<field name="mrp_area_id" invisible="True"/>
 								<field name="mrp_product_id" invisible="True"/>
 								<field name="mrp_action_date" readonly="True"/>
 								<field name="mrp_date" readonly="True"/>
@@ -76,6 +79,8 @@
 							<form string="Moves">
 								<group colspan="4" col="2">
 									<group>
+										<field name="mrp_area_id"
+											   invisible="True"/>
 										<field name="mrp_product_id" invisible="True"/>
 										<field name="mrp_qty" readonly="True"/>
 										<field name="current_qty" readonly="True"/>
@@ -95,6 +100,8 @@
 								<group colspan="2" col="2">
 									<field name="mrp_move_up_ids">
 										<tree string="Moves">
+											<field name="mrp_area_id"
+												   invisible="True"/>
 											<field name="mrp_product_id" readonly="True"/>
 											<field name="mrp_date" readonly="True"/>
 											<field name="current_date" readonly="True"/>
@@ -127,6 +134,7 @@
 				<search string="Search Product">
 					<group expand="0" string="Selection...">
 						<field name="product_id" select='1'/>
+						<field name="mrp_area_id"/>
 					</group>
 					<separator/>
 					<filter string="With Moves" name="moves" domain="[['mrp_move_ids','!=',False]]"/>

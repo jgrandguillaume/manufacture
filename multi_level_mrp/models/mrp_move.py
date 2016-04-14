@@ -12,6 +12,7 @@ from openerp.tools.translate import _
 class MrpMove(models.Model):
     _name = 'mrp.move'
  
+    mrp_area_id = fields.Many2one('mrp.area', 'MRP Area')
     current_date = fields.Date('Current Date')
     current_qty = fields.Float('Current Qty')
     mrp_action = fields.Selection((('mo', 'Manufacturing Order'),
@@ -21,10 +22,7 @@ class MrpMove(models.Model):
                                    ('push', 'Push'),
                                    ('pull', 'Pull'),
                                    ('cancel', 'Cancel'),
-                                   ('none', 'None'),
-                                   ('sc', 'Shortage CC'),
-                                   ('sp', 'Shortage PROD'),
-                                   ('sb', 'Shortage Both')),
+                                   ('none', 'None')),
                                   'Action')
     mrp_action_date = fields.Date('MRP Action Date')
     mrp_date = fields.Date('MRP Date')
@@ -100,18 +98,12 @@ class MrpMove(models.Model):
             return True
         bom_id = False
         routing_id = False
-        sql_stat = """"
-            SELECT  id,
-                    routing_id
-            FROM mrp_bom
-            WHERE product_id = %d AND
-            type = 'normal'
-            """ % (self.product_id.id, )
-        self.env.cr.execute(sql_stat)
-        sql_res = self.env.cr.dictfetchone()
-        if sql_res and sql_res['id']:
-            bom_id = sql_res['id']
-            routing_id = sql_res['routing_id']
+        mrp_boms = self.env['mrp.bom'].search(
+            [('product_id', '=', self.product_id.id),
+             ('type', '=', 'normal')], limit=1)
+        for mrp_bom in mrp_boms:
+            bom_id = mrp_bom.id
+            routing_id = mrp_bom.routing_id.id
 
         if self.product_id.track_production and self.mrp_qty > 1:
             raise exceptions.Warning(_('Not allowed to create '
@@ -119,8 +111,7 @@ class MrpMove(models.Model):
                                        'quantity higher than 1 '
                                        'for serialized product'))
         else:
-            production_data = self.mrp_production_prepare(
-                self, bom_id, routing_id)
+            production_data = self.mrp_production_prepare(bom_id, routing_id)
             pr = self.env['mrp.production'].create(production_data)
             self.production_id = pr.id
             self.current_qty = self.mrp_qty
@@ -162,8 +153,8 @@ class MrpMove(models.Model):
 
     @api.one
     def mrp_process(self):
-        self.mrp_process_mo(self)
-        self.mrp_process_pr(self)
+        self.mrp_process_mo()
+        self.mrp_process_pr()
         return True
         
     @api.v7

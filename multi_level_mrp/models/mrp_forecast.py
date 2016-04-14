@@ -177,6 +177,7 @@ class MrpForecastProduct(models.Model):
                                        'Forecast')
     name = fields.Char(compute='_function_name', string='Description')
     product_id = fields.Many2one('product.product', 'Product', select=True)
+    mrp_area_id = fields.Many2one('mrp.area', 'MRP Area')
     qty_forecast_m0 = fields.Float(compute='_function_forecast_m0',
                                    string='This Month Forecast')
     qty_forecast_m1 = fields.Float(compute='_function_forecast_m1',
