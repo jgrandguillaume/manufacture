@@ -895,7 +895,7 @@ WHERE product_product.id = mrp_forecast_product.product_id;'''
                 supply_qty = supply_qty_by_date[mdt]
                 mrp_inventory_data['supply_qty'] = abs(supply_qty)
             if mdt in supply_actions_qty_by_date.keys():
-                mrp_inventory_data['to_order'] = \
+                mrp_inventory_data['to_procure'] = \
                     supply_actions_qty_by_date[mdt]
             mrp_inventory_data['initial_on_hand_qty'] = on_hand_qty
             on_hand_qty += (supply_qty + demand_qty)

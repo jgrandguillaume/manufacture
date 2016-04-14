@@ -16,7 +16,7 @@
 						<field name="demand_qty"/>
 						<field name="supply_qty"/>
 						<field name="final_on_hand_qty"/>
-						<field name="to_order"/>
+						<field name="to_procure"/>
 					</group>
 				</form>
 			</field>
@@ -35,11 +35,11 @@
 					<field name="demand_qty"/>
 					<field name="supply_qty"/>
 					<field name="final_on_hand_qty"/>
-					<field name="to_order"/>
+					<field name="to_procure"/>
 					<button string="Create Procurement"
 							name="%(multi_level_mrp.action_mrp_inventory_create_procurement)d"
 							icon="gtk-ok" type="action"
-							attrs="{'invisible':[('to_order','==',0.0)]}"/>
+							attrs="{'invisible':[('to_procure','==',0.0)]}"/>
 				</tree>
 			</field>
 		</record>
@@ -55,8 +55,8 @@
 						<field name="mrp_area_id" select='1'/>
 					</group>
 					<separator/>
-					<filter string="To Order" name="moves"
-							domain="[['to_order','>',0.0]]"/>
+					<filter string="To Procure" name="filter_to_procure"
+							domain="[['to_procure','>',0.0]]"/>
 					<separator/>
 					<group expand="0" string="Group By...">
 						<filter string="Product"

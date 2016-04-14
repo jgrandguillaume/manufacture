@@ -19,6 +19,6 @@ class MrpInventory(models.Model):
     supply_qty = fields.Float('Supply')
     initial_on_hand_qty = fields.Float('Starting Inventory')
     final_on_hand_qty = fields.Float('Forecasted Inventory')
-    to_order = fields.Float('To order')
+    to_procure = fields.Float('To procure')
 
     _order = 'mrp_product_id, date'
