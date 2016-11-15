@@ -161,7 +161,7 @@ class MrpProductionCase(TransactionCase):
             mo2.raw_material_procurement_group_id)
 
         self.assertEqual(
-            mo2.raw_material_procurement_group_id, False)
+            mo2.raw_material_procurement_group_id.id, False)
 
     def test_copy_mo_2(self):
         # Create MO
@@ -170,7 +170,7 @@ class MrpProductionCase(TransactionCase):
         mo.signal_workflow("button_confirm")
 
         self.assertNotEqual(
-            mo.raw_material_procurement_group_id, False)
+            mo.raw_material_procurement_group_id.id, False)
 
         self.assertEqual(
             mo.raw_material_procurement_group_id.name, mo.name)
@@ -184,7 +184,7 @@ class MrpProductionCase(TransactionCase):
             'location_id': location.id,
         })
         self.bom1.write({
-            "routing_id": routing})
+            "routing_id": routing.id})
         # Create MO
         mo = self._create_mo(auto=True)
         mo2 = self._create_mo(auto=True)
