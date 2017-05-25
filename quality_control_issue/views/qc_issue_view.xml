@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright 2017 Eficent Business and IT Consulting Services S.L.
+     License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl). -->
+
+<odoo>
+
+    <record id="qc_issue_tree" model="ir.ui.view">
+        <field name="name">qc.issue.tree</field>
+        <field name="model">qc.issue</field>
+        <field name="arch" type="xml">
+            <tree string="Issues">
+                <field name="name"/>
+                <field name="inspector_id"/>
+                <field name="product_id"/>
+                <field name="responsible_id"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="qc_issue_form" model="ir.ui.view">
+        <field name="name">qc.issue.form</field>
+        <field name="model">qc.issue</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_confirm"
+                            type="object" states="new"
+                            string="Confirm" class="oe_highlight" />
+                    <button name="action_done"
+                            type="object" states="progress"
+                            string="Set to Done" class="oe_highlight" />
+                    <button name="action_cancel"
+                            type="object" states="new,progress"
+                            string="Cancel"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="new,progress,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <!--To be inhereted by other modules.-->
+                    </div>
+                    <div class="oe_title">
+                        <label string="Quality Control Issue"/>
+                        <h1>
+                            <field name="name"/>
+                        </h1>
+                    </div>
+                    <group name="top">
+                        <group>
+                            <field name="inspector_id"/>
+                            <field name="responsible_id"/>
+                        </group>
+                        <group>
+                            <field name="lot_id"
+                                   groups="stock.group_production_lot"
+                                   attrs="{'required': [('product_tracking', 'in', ('serial', 'lot'))]}"/>
+                            <field name="product_id"/>
+                            <field name="product_tracking" invisible="1"/>
+                            <field name="product_qty"
+                                   attrs="{'invisible': [('product_tracking', '=', 'serial')]}"/>
+                            <field name="product_uom"
+                                   groups="product.group_uom"
+                                   attrs="{'invisible': [('product_tracking', '=', 'serial')]}"/>
+                            <field name="location_id"/>
+                        </group>
+                    </group>
+                    <group name="bottom">
+                        <field name="problem_track_ids" widget="many2many_tags"/>
+                        <field name="description"/>
+                    </group>
+                </sheet>
+                <div class="oe_chatter">
+                    <field name="message_follower_ids" widget="mail_followers" />
+                    <field name="message_ids" widget="mail_thread" />
+                </div>
+            </form>
+        </field>
+    </record>
+
+    <record id="qc_issue_action" model="ir.actions.act_window">
+        <field name="name">QC Issues</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">qc.issue</field>
+        <field name="view_type">form</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_qc_issue"
+              parent="quality_control.qc_menu"
+              sequence="50" name="Issues"/>
+
+    <menuitem id="menu_qc_issue_child"
+              parent="quality_control_issue.menu_qc_issue"
+              action="qc_issue_action"
+              sequence="20" name="Issues"/>
+
+</odoo>
