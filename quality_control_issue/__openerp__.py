@@ -14,6 +14,7 @@
     "depends": ["quality_control", "quality_control_team", "stock"],
     "data": [
         "security/ir.model.access.csv",
+        "security/quality_control_issue_security.xml",
         "data/qc_issue_sequence.xml",
         "data/qc_stage_data.xml",
         "views/qc_issue_view.xml",

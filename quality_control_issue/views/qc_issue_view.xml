@@ -50,6 +50,8 @@
                         <group>
                             <field name="inspector_id"/>
                             <field name="responsible_id"/>
+                            <field name="company_id"
+                                   groups="base.group_multi_company"/>
                         </group>
                         <group>
                             <field name="lot_id"

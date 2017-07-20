@@ -63,6 +63,9 @@ class QualityControlIssue(models.Model):
         relation="qc_issue_problem_rel", column1="qc_issue_id",
         column2="qc_problem_id",
         states={"done": [("readonly", True)]},)
+    company_id = fields.Many2one('res.company', string='Company',
+                                 required=True, default=lambda self:
+                                 self.env.user.company_id)
 
     @api.multi
     def action_confirm(self):
