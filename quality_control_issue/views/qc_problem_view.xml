@@ -4,9 +4,9 @@
 
 <odoo>
 
-    <record id="qc_problem_track_tree" model="ir.ui.view">
-        <field name="name">qc.problem.track.tree</field>
-        <field name="model">qc.problem.track</field>
+    <record id="qc_problem_tree" model="ir.ui.view">
+        <field name="name">qc.problem.tree</field>
+        <field name="model">qc.problem</field>
         <field name="arch" type="xml">
             <tree string="Problem Tracking">
                 <field name="name"/>
@@ -16,9 +16,9 @@
         </field>
     </record>
 
-    <record id="qc_problem_track_form" model="ir.ui.view">
-        <field name="name">qc.problem.track.form</field>
-        <field name="model">qc.problem.track</field>
+    <record id="qc_problem_form" model="ir.ui.view">
+        <field name="name">qc.problem.form</field>
+        <field name="model">qc.problem</field>
         <field name="arch" type="xml">
             <form>
                 <header>
@@ -54,9 +54,9 @@
         </field>
     </record>
 
-    <record model="ir.ui.view" id="qc_problem_track_kanban_view">
-        <field name="name">qc.problem.track.kanban</field>
-        <field name="model">qc.problem.track</field>
+    <record model="ir.ui.view" id="qc_problem_kanban_view">
+        <field name="name">qc.problem.kanban</field>
+        <field name="model">qc.problem</field>
         <field name="arch" type="xml">
             <kanban class="o_kanban_small_column" default_group_by="stage_id">
                 <field name="stage_id"/>
@@ -95,9 +95,9 @@
         </field>
     </record>
 
-    <record model="ir.ui.view" id="qc_problem_track_search">
-        <field name="name">qc.problem.track.serch</field>
-        <field name="model">qc.problem.track</field>
+    <record model="ir.ui.view" id="qc_problem_search">
+        <field name="name">qc.problem.serch</field>
+        <field name="model">qc.problem</field>
         <field name="arch" type="xml">
             <search>
                 <field name="qc_team_id"/>
@@ -117,21 +117,21 @@
     </record>
 
 
-    <record id="qc_problem_track_action" model="ir.actions.act_window">
+    <record id="qc_problem_action" model="ir.actions.act_window">
         <field name="name">Problem Tracking</field>
         <field name="type">ir.actions.act_window</field>
-        <field name="res_model">qc.problem.track</field>
+        <field name="res_model">qc.problem</field>
         <field name="view_type">form</field>
         <field name="view_mode">kanban,tree,form</field>
     </record>
 
-    <menuitem id="menu_qc_problem"
+    <menuitem id="menu_qc_problem_tracking"
           parent="quality_control.qc_menu"
           sequence="60" name="Problem Tracking"/>
 
-    <menuitem id="menu_qc_problem_track"
-          parent="quality_control_issue.menu_qc_problem"
-          action="qc_problem_track_action"
+    <menuitem id="menu_qc_problem"
+          parent="quality_control_issue.menu_qc_problem_tracking"
+          action="qc_problem_action"
           sequence="20" name="Problems"/>
 
 </odoo>

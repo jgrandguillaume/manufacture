@@ -11,4 +11,4 @@ class QcProblemGroup(models.Model):
 
     name = fields.Char()
     problem_ids = fields.One2many(
-        comodel_name="qc.problem.track", inverse_name="problem_group_id")
+        comodel_name="qc.problem", inverse_name="problem_group_id")

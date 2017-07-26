@@ -41,7 +41,7 @@
     </record>
 
     <menuitem id="menu_qc_problem_group"
-          parent="quality_control_issue.menu_qc_problem"
+          parent="quality_control_issue.menu_qc_problem_tracking"
           action="qc_problem_group_action"
           sequence="60" name="Problem Groups"/>
 

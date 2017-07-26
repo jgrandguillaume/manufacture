@@ -12,8 +12,8 @@ AVAILABLE_PRIORITIES = [
 ]
 
 
-class QcProblemTrack(models.Model):
-    _name = "qc.problem.track"
+class QcProblem(models.Model):
+    _name = "qc.problem"
     _description = "Quality Control Problem Tracking"
     _inherit = "mail.thread"
 

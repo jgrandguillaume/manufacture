@@ -18,7 +18,7 @@
         "data/qc_issue_sequence.xml",
         "data/qc_stage_data.xml",
         "views/qc_issue_view.xml",
-        "views/qc_problem_track_view.xml",
+        "views/qc_problem_view.xml",
         "views/qc_problem_group_view.xml",
         "views/qc_team_dashboard_view.xml",
     ],

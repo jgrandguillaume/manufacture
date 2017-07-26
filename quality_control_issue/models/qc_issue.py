@@ -59,7 +59,7 @@ class QualityControlIssue(models.Model):
     description = fields.Text(
         states={"done": [("readonly", True)]},)
     problem_track_ids = fields.Many2many(
-        comodel_name="qc.problem.track", string="Problems",
+        comodel_name="qc.problem", string="Problems",
         relation="qc_issue_problem_rel", column1="qc_issue_id",
         column2="qc_problem_id",
         states={"done": [("readonly", True)]},)

@@ -3,9 +3,9 @@
      License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl). -->
 <odoo>
 
-    <record model="ir.actions.act_window" id="team_qc_problem_track_act">
+    <record model="ir.actions.act_window" id="team_qc_problem_act">
         <field name="name">Problem tracking</field>
-        <field name="res_model">qc.problem.track</field>
+        <field name="res_model">qc.problem</field>
         <field name="view_mode">kanban,tree,form,pivot</field>
         <field name="context">{
                 'search_default_qc_team_id': [active_id],
@@ -26,7 +26,7 @@
 
             <xpath expr="//div[contains(@class, 'o_kanban_primary_left')]" position="inside">
                 <button class="btn btn-primary" type="action"
-                        name="%(team_qc_problem_track_act)d">Problems
+                        name="%(team_qc_problem_act)d">Problems
                 </button>
             </xpath>
 
