@@ -21,6 +21,40 @@ class QualityControlIssue(models.Model):
     def _get_uom(self):
         self.product_uom = self.product_id.product_tmpl_id.uom_id
 
+    def _get_default_stage_id(self):
+        """ Gives default stage_id """
+        team_id = self.env['qc.team']._get_default_qc_team_id(
+            user_id=self.env.uid)
+        return self.issue_stage_find([], team_id, [('fold', '=', False)])
+
+    @api.multi
+    def _read_group_stage_ids(self, domain, read_group_order=None,
+                              access_rights_uid=None):
+        access_rights_uid = access_rights_uid or self._uid
+        stage_obj = self.env['qc.issue.stage']
+        search_domain = []
+        qc_team_id = self.env.context.get('default_qc_team_id') or False
+        if qc_team_id:
+            search_domain += ['|', ('id', 'in', self.ids)]
+            search_domain += ['|', ('qc_team_id', '=', qc_team_id)]
+            search_domain += [('qc_team_id', '=', False)]
+        else:
+            search_domain += ['|', ('id', 'in', self.ids)]
+            search_domain += [('qc_team_id', '=', False)]
+        # perform search
+        stage_ids = stage_obj._search(search_domain,
+                                      access_rights_uid=access_rights_uid)
+        result = [stage.name_get()[0] for stage in
+                  stage_obj.browse(stage_ids)]
+        # restore order of the search
+        result.sort(
+            lambda x, y: cmp(stage_ids.index(x[0]), stage_ids.index(y[0])))
+
+        fold = {}
+        for stage in stage_obj.browse(stage_ids):
+            fold[stage.id] = stage.fold or False
+        return result, fold
+
     name = fields.Char(readonly=True)
     state = fields.Selection(
         selection=[("new", "New"),
@@ -58,14 +92,56 @@ class QualityControlIssue(models.Model):
         states={"done": [("readonly", True)]},)
     description = fields.Text(
         states={"done": [("readonly", True)]},)
-    problem_track_ids = fields.Many2many(
+    qc_problem_ids = fields.Many2many(
         comodel_name="qc.problem", string="Problems",
         relation="qc_issue_problem_rel", column1="qc_issue_id",
         column2="qc_problem_id",
         states={"done": [("readonly", True)]},)
-    company_id = fields.Many2one('res.company', string='Company',
-                                 required=True, default=lambda self:
-                                 self.env.user.company_id)
+    color = fields.Integer(string='Color Index')
+    stage_id = fields.Many2one(
+        comodel_name="qc.issue.stage", string='Stage',
+        track_visibility='onchange',
+        select=True, default=_get_default_stage_id,
+        domain="['|', ('qc_team_id', '=', False), "
+               "('qc_team_id', '=', qc_team_id)]")
+    qc_team_id = fields.Many2one(
+        comodel_name='qc.team', string='QC Team',
+        default=lambda self: self.env[
+            'qc.team'].sudo()._get_default_qc_team_id(user_id=self.env.uid),
+        index=True, track_visibility='onchange')
+    company_id = fields.Many2one(
+        comodel_name='res.company', string='Company', required=True,
+        default=lambda self: self.env.user.company_id)
+
+    _group_by_full = {
+        'stage_id': _read_group_stage_ids
+    }
+
+    def issue_stage_find(self, cases, team_id, domain=None, order='sequence'):
+        """ Override of the base.stage method
+            Parameter of the stage search taken from the problem:
+            - team_id: if set, stages must belong to this team or
+              be a default stage; if not set, stages must be default
+              stages
+        """
+        team_ids = set()
+        if team_id:
+            team_ids.add(team_id)
+        for problem in cases:
+            if problem.team_id:
+                team_ids.add(problem.team_id.id)
+        search_domain = []
+        if team_ids:
+            search_domain += [('|')] * (len(team_ids) - 1)
+            for team_id in team_ids:
+                search_domain.append(('qc_team_id', '=', team_id.id))
+        search_domain += list(domain)
+        # perform search, return the first found
+        stage_ids = self.env['qc.issue.stage'].search(
+            search_domain, order=order, limit=1)
+        if stage_ids:
+            return stage_ids[0]
+        return False
 
     @api.multi
     def action_confirm(self):

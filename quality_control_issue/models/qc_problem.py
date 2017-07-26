@@ -2,7 +2,7 @@
 # Copyright 2017 Eficent Business and IT Consulting Services S.L.
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
-from openerp import api, fields, models, SUPERUSER_ID
+from openerp import api, fields, models
 
 AVAILABLE_PRIORITIES = [
     ('0', 'Normal'),
@@ -79,9 +79,9 @@ class QcProblem(models.Model):
         default=lambda self: self.env[
             'qc.team'].sudo()._get_default_qc_team_id(user_id=self.env.uid),
         index=True, track_visibility='onchange')
-    company_id = fields.Many2one('res.company', string='Company',
-                                 required=True, default=lambda self:
-                                 self.env.user.company_id)
+    company_id = fields.Many2one(
+        comodel_name='res.company', string='Company', required=True,
+        default=lambda self: self.env.user.company_id)
     _group_by_full = {
         'stage_id': _read_group_stage_ids
     }

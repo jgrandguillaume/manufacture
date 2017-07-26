@@ -103,14 +103,13 @@
                 <field name="qc_team_id"/>
                 <field name="stage_id"/>
                 <field name="problem_group_id"/>
-                <!--<filter name="personal" string="My Teams"-->
-                        <!--domain="['|', ('member_ids', '=', uid), ('user_id', '=', uid)]"/>-->
                 <group expand="0" string="Group By...">
                     <filter string="Stage" domain="[]"
                             context="{'group_by':'stage_id'}"/>
                     <filter string="Problem Group" domain="[]"
                             context="{'group_by': 'problem_group_id'}"/>
-                    <!--<filter string="Company" context="{'group_by':'company_id'}" groups="base.group_multi_company"/>-->
+                    <filter string="Company" context="{'group_by':'company_id'}"
+                            groups="base.group_multi_company"/>
                 </group>
             </search>
         </field>
