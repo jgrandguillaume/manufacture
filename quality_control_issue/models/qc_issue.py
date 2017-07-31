@@ -3,6 +3,7 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 
 from openerp import api, fields, models, _
+from openerp.exceptions import UserError
 import openerp.addons.decimal_precision as dp
 
 
@@ -141,14 +142,44 @@ class QualityControlIssue(models.Model):
                 team_ids.add(issue.team_id.id)
         search_domain = []
         if team_ids:
-            search_domain += [('|')] * (len(team_ids) - 1)
+            search_domain += [('|')] * (len(team_ids))
+            search_domain.append(('qc_team_id', '=', False))
             for team_id in team_ids:
                 search_domain.append(('qc_team_id', '=', team_id))
+        else:
+            search_domain.append(('qc_team_id', '=', False))
         search_domain += list(domain)
         # perform search, return the first found
         stage = self.env['qc.issue.stage'].search(
             search_domain, order=order, limit=1)
         return stage
+
+    @api.multi
+    def write(self, vals):
+        stage_obj = self.env['qc.issue.stage']
+        state = vals.get('state')
+        if state:
+            if len(self.mapped('qc_team_id')) > 1:
+                raise UserError(_(
+                    "Every issue must have the same QC team to perform this "
+                    "action."))
+            team = self[0].qc_team_id
+            stage = self.issue_stage_find([], team, [('state', '=', state)])
+            if stage:
+                vals.update({'stage_id': stage.id})
+            return super(QualityControlIssue, self).write(vals)
+        team_id = vals.get('qc_team_id')
+        if team_id is not None:
+            team = self.env['qc.team'].browse(team_id)
+            stage = self.issue_stage_find([], team, [('fold', '=', False)])
+            if stage:
+                vals.update({'stage_id': stage.id})
+        stage_id = vals.get('stage_id')
+        if stage_id:
+            state = stage_obj.browse(stage_id).state
+            if state:
+                vals.update({'state': state})
+        return super(QualityControlIssue, self).write(vals)
 
     @api.multi
     def action_confirm(self):
@@ -178,11 +209,6 @@ class QualityControlIssue(models.Model):
         if product:
             self.product_id = product
             self.product_uom = product.product_tmpl_id.uom_id
-
-    @api.onchange("stage_id")
-    def _onchange_stage_id(self):
-        if self.stage_id.state:
-            self.state = self.stage_id.state
 
     @api.multi
     def scrap_products(self):
