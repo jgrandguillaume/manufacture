@@ -2,7 +2,7 @@
 # © 2017 Eficent Business and IT Consulting Services S.L.
 # License AGPL-3.0 or later (https://www.gnu.org/licenses/agpl.html).
 
-from openerp.tests.common import TransactionCase
+from odoo.tests.common import TransactionCase
 
 
 class MrpProductionCase(TransactionCase):
@@ -70,8 +70,6 @@ class MrpProductionCase(TransactionCase):
         without destination move."""
         # Create MO
         mo = self._create_mo()
-        # Click confirm button
-        mo.signal_workflow("button_confirm")
         for finished in mo.move_created_ids:
             self.assertEqual(
                 finished.location_dest_id, self.bin_loc_stock,
@@ -91,8 +89,6 @@ class MrpProductionCase(TransactionCase):
         })
         # Create MO
         mo = self._create_mo(move_prod_id=move)
-        # Click confirm button
-        mo.signal_workflow("button_confirm")
         for finished in mo.move_created_ids:
             self.assertEqual(
                 finished.location_dest_id, self.loc_stock,
